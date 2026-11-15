@@ -1,0 +1,41 @@
+# Reddit API credentials.
+#
+# Create an app at https://www.reddit.com/prefs/apps (choose the "script" type).
+#   client_id:     the string shown under the app name ("personal use script")
+#   client_secret: the "secret" field of the app
+#   username/password: the Reddit account that owns the app
+#
+# If client_id + client_secret + username + password are all set, the bot logs in as that user.
+# If only client_id + client_secret are set, it uses an app-only token.
+# If nothing is set, it falls back to Reddit's public JSON endpoints (often rate-limited/blocked).
+reddit:
+  client_id: ""
+  client_secret: ""
+  username: ""
+  password: ""
+  # Reddit requires a descriptive User-Agent. Leave empty to auto-generate one.
+  user_agent: ""
+
+# Maximum number of reddit links to preview per message.
+max_links_per_message: 3
+# Maximum number of characters of the post body to include (0 = don't include the body).
+max_body_length: 1500
+# Number of top-level comments to include (0 = none).
+# For links to a specific comment, that comment is shown instead.
+comment_count: 3
+# Maximum number of characters per comment.
+max_comment_length: 500
+# Download the post's image (or first gallery image) and post it to the room.
+upload_images: true
+# Maximum image size in bytes to upload.
+max_image_size: 10485760
+# Upload images for NSFW / spoiler posts too.
+nsfw_media: false
+# Send previews as m.notice (true) or m.text (false). Notices are ignored by most bots.
+use_notice: true
+# Send the preview as a reply to the message containing the link.
+reply: true
+# Ignore links in messages sent by these Matrix user IDs (the bot itself is always ignored).
+ignore_users: []
+# If non-empty, only these room IDs get previews. Otherwise every joined room does.
+allowed_rooms: []

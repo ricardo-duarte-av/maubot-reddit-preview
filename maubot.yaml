@@ -1,0 +1,10 @@
+maubot: 0.1.0
+id: com.github.ricardo-duarte-av.redditpreview
+version: 0.1.0
+modules:
+  - reddit_preview
+main_class: RedditPreviewBot
+config: true
+extra_files:
+  - base-config.yaml
+database: false
