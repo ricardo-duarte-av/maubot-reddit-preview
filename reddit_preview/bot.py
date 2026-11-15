@@ -349,9 +349,12 @@ class RedditPreviewBot(Plugin):
                 raise RedditError(f"Image download failed with HTTP {resp.status}")
             if resp.content_length and resp.content_length > max_size:
                 return
-            data = await resp.content.read(max_size + 1)
-            if len(data) > max_size:
-                return
+            buf = bytearray()
+            async for chunk in resp.content.iter_chunked(65536):
+                buf.extend(chunk)
+                if len(buf) > max_size:
+                    return
+            data = bytes(buf)
             mime = resp.content_type or "image/jpeg"
         if not mime.startswith("image/"):
             return
