@@ -49,6 +49,7 @@ class Config(BaseProxyConfig):
             "reddit.user_agent",
             "max_links_per_message",
             "max_body_length",
+            "show_top_comments",
             "comment_count",
             "max_comment_length",
             "upload_images",
@@ -320,6 +321,8 @@ class RedditPreviewBot(Plugin):
 
     async def _fetch(self, target: Target) -> tuple[dict, list[dict]]:
         count = max(0, int(self.config["comment_count"]))
+        if not self.config["show_top_comments"]:
+            count = 0
         params = {"sort": "top", "depth": "1", "limit": str(max(count, 1))}
         if target.comment_id:
             params["comment"] = target.comment_id

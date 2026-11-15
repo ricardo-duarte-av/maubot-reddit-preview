@@ -20,8 +20,10 @@ reddit:
 max_links_per_message: 3
 # Maximum number of characters of the post body to include (0 = don't include the body).
 max_body_length: 1500
-# Number of top-level comments to include (0 = none).
-# For links to a specific comment, that comment is shown instead.
+# Show the thread's top comments below the post.
+# Links to a specific comment always show that comment, regardless of this setting.
+show_top_comments: true
+# Number of top-level comments to include when show_top_comments is enabled.
 comment_count: 3
 # Maximum number of characters per comment.
 max_comment_length: 500
