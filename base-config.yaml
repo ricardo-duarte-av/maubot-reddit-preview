@@ -23,6 +23,14 @@ max_body_length: 1500
 # Show the thread's top comments below the post.
 # Links to a specific comment always show that comment, regardless of this setting.
 show_top_comments: true
+# Append "Repo: <url>" lines for git links found anywhere in the post or the shown comments,
+# even if the text containing them was truncated out of the preview.
+# Detects GitHub, GitLab, Codeberg, Bitbucket, SourceHut, Launchpad, SourceForge, etc., and
+# self-hosted forges whose hostname has a label starting with git/forgejo/gogs
+# (git.example.com, gitea.example.org, forgejo.example.net, ...).
+# raw.githubusercontent.com, gists and GitHub/GitLab/Codeberg Pages links are mapped
+# back to their repo.
+show_git_links: true
 # Number of top-level comments to include when show_top_comments is enabled.
 comment_count: 3
 # Maximum number of characters per comment.

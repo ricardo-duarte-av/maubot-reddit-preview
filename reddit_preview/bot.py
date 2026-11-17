@@ -37,6 +37,10 @@ COMMENTS_RE = re.compile(
 SHARE_RE = re.compile(r"/r/[^/]+/s/[A-Za-z0-9]+", re.IGNORECASE)
 SHORT_RE = re.compile(r"^/(?P<post>[a-z0-9]+)/?$", re.IGNORECASE)
 IMAGE_EXT_RE = re.compile(r"\.(?:jpe?g|png|gif|webp)(?:\?.*)?$", re.IGNORECASE)
+# Any http(s) URL; filtered down to git hosts by _is_git_host
+ANY_URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
+# Upper bound on "Repo:" lines per preview, so link-dump posts don't flood the room
+MAX_GIT_LINKS = 10
 
 
 class Config(BaseProxyConfig):
@@ -50,6 +54,7 @@ class Config(BaseProxyConfig):
             "max_links_per_message",
             "max_body_length",
             "show_top_comments",
+            "show_git_links",
             "comment_count",
             "max_comment_length",
             "upload_images",
@@ -95,6 +100,99 @@ def _num(n: Any) -> str:
     if abs(n) >= 10_000:
         return f"{n / 1000:.1f}k"
     return str(n)
+
+
+# Well-known forges whose hostnames don't contain a "git"-like label.
+# Subdomains match too (e.g. git.sr.ht, hg.sr.ht).
+KNOWN_FORGES = (
+    "codeberg.org",
+    "bitbucket.org",
+    "sr.ht",
+    "framagit.org",
+    "notabug.org",
+    "pagure.io",
+    "salsa.debian.org",
+    "invent.kde.org",
+    "code.launchpad.net",
+    "launchpad.net",
+    "sourceforge.net",
+    "src.fedoraproject.org",
+)
+# Hostname labels that indicate a self-hosted forge: github, gitlab, gitea, git.example.com,
+# forgejo.example.org, gogs.example.org, ...
+FORGE_LABEL_PREFIXES = ("git", "forgejo", "gogs")
+# Static-site hosts: <owner>.<pages host>/<repo>/... -> <forge>/<owner>/<repo>
+PAGES_HOSTS = {
+    "github.io": "https://github.com",
+    "gitlab.io": "https://gitlab.com",
+    "codeberg.page": "https://codeberg.org",
+}
+
+
+def _host_matches(host: str, domain: str) -> bool:
+    return host == domain or host.endswith("." + domain)
+
+
+def _canonical_git_link(url: URL) -> Optional[str]:
+    """Return the repo link for a git-hosting URL, or None if it's not one.
+
+    Raw-file, gist and Pages hosts are mapped back to the repo they belong to.
+    """
+    host = (url.host or "").lower()
+    parts = [p for p in url.path.split("/") if p]
+
+    if host == "raw.githubusercontent.com":
+        # /<owner>/<repo>/<ref>/<path>
+        return f"https://github.com/{parts[0]}/{parts[1]}" if len(parts) >= 2 else None
+    if host == "gist.githubusercontent.com":
+        # /<owner>/<gist id>/raw/...
+        return f"https://gist.github.com/{parts[0]}/{parts[1]}" if len(parts) >= 2 else None
+    if _host_matches(host, "githubusercontent.com"):
+        return None  # user-images, avatars, objects: no repo info
+
+    for pages, forge in PAGES_HOSTS.items():
+        if host.endswith("." + pages):
+            owner = host[: -len(pages) - 1]
+            if "." in owner:
+                return None
+            # owner.github.io/repo/... is a project site; bare owner.github.io is the
+            # user site, which lives in the <owner>.github.io repo.
+            repo = parts[0] if parts else host
+            return f"{forge}/{owner}/{repo}"
+
+    labels = host.split(".")
+    if len(labels) < 2:
+        return None
+    if any(_host_matches(host, d) for d in KNOWN_FORGES) or any(
+        lbl.startswith(FORGE_LABEL_PREFIXES) for lbl in labels[:-1]
+    ):
+        return str(url)
+    return None
+
+
+def _find_git_links(texts: list[str]) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+    for text in texts:
+        if not text:
+            continue
+        # Reddit markdown escapes underscores etc. inside URLs ("foo\\_bar")
+        for match in ANY_URL_RE.finditer(text.replace("\\", "")):
+            link = match.group(0).rstrip(".,;:!?*")
+            try:
+                link = _canonical_git_link(URL(link))
+            except ValueError:
+                continue
+            if not link:
+                continue
+            key = link.lower().rstrip("/")
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(link)
+            if len(found) >= MAX_GIT_LINKS:
+                return found
+    return found
 
 
 class RedditPreviewBot(Plugin):
@@ -314,6 +412,26 @@ class RedditPreviewBot(Plugin):
                 out.append(
                     f"<blockquote><p><b>{html.escape(c_meta)}</b></p>{_md(c_body)}</blockquote>"
                 )
+
+        if self.config["show_git_links"]:
+            # Search the full (untruncated) text, so repos are listed even if cut from the preview
+            texts = [
+                post.get("title", ""),
+                source.get("url_overridden_by_dest") or source.get("url") or "",
+                source.get("selftext") or "",
+                *(c.get("body", "") for c in comments),
+            ]
+            repos = _find_git_links(texts)
+            if repos:
+                plain.append("")
+                out.append("<p>")
+                for i, repo in enumerate(repos):
+                    plain.append(f"Repo: {repo}")
+                    br = "<br>" if i < len(repos) - 1 else ""
+                    out.append(
+                        f"<b>Repo:</b> <a href=\"{html.escape(repo)}\">{html.escape(repo)}</a>{br}"
+                    )
+                out.append("</p>")
 
         return "\n".join(plain), "\n".join(out)
 
