@@ -35,8 +35,10 @@ show_git_links: true
 comment_count: 3
 # Maximum number of characters per comment.
 max_comment_length: 500
-# Download the post's image (or first gallery image) and post it to the room.
+# Download the post's image(s) (gallery images, or inline images in text posts) and post them to the room.
 upload_images: true
+# Maximum number of images to upload per post.
+max_images: 4
 # Maximum image size in bytes to upload.
 max_image_size: 10485760
 # Upload images for NSFW / spoiler posts too.

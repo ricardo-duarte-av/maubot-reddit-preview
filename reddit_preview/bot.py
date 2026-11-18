@@ -59,6 +59,7 @@ class Config(BaseProxyConfig):
             "max_comment_length",
             "upload_images",
             "max_image_size",
+            "max_images",
             "nsfw_media",
             "use_notice",
             "reply",
@@ -317,24 +318,42 @@ class RedditPreviewBot(Plugin):
 
     # -------------------------------------------------------------- formatting
 
-    def _post_image(self, post: dict) -> Optional[str]:
-        meta = post.get("media_metadata")
+    def _post_images(self, post: dict) -> list[str]:
+        meta = post.get("media_metadata") or {}
+
+        def meta_url(media_id: str) -> Optional[str]:
+            entry = meta.get(media_id) or {}
+            src = entry.get("s") or {}
+            if entry.get("e") == "Image" and src.get("u"):
+                return src["u"]
+            return None
+
+        urls: list[str] = []
         gallery = post.get("gallery_data")
         if post.get("is_gallery") and meta and gallery:
             for item in gallery.get("items", []):
-                entry = meta.get(item.get("media_id"), {})
-                src = entry.get("s", {})
-                if entry.get("e") == "Image" and src.get("u"):
-                    return src["u"]
+                u = meta_url(item.get("media_id", ""))
+                if u:
+                    urls.append(u)
+            if urls:
+                return urls
+        if meta:
+            # Text posts with inline images: keep the order they appear in the body,
+            # then any remaining ones.
+            body = post.get("selftext") or ""
+            ids = sorted(meta, key=lambda k: (body.find(k) < 0, body.find(k)))
+            urls = [u for u in (meta_url(k) for k in ids) if u]
+            if urls:
+                return urls
         url = post.get("url_overridden_by_dest") or post.get("url") or ""
         if IMAGE_EXT_RE.search(url):
-            return url
+            return [url]
         if post.get("post_hint") not in ("image", "link", "rich:video", "hosted:video"):
-            return None
+            return []
         try:
-            return post["preview"]["images"][0]["source"]["url"]
+            return [post["preview"]["images"][0]["source"]["url"]]
         except (KeyError, IndexError, TypeError):
-            return None
+            return []
 
     def _format(
         self, post: dict, comments: list[dict], focused: bool
@@ -507,8 +526,8 @@ class RedditPreviewBot(Plugin):
             if (source.get("over_18") or source.get("spoiler") or post.get("over_18")) and not \
                     self.config["nsfw_media"]:
                 return
-            img = self._post_image(source)
-            if img:
+            limit = max(0, int(self.config["max_images"]))
+            for img in self._post_images(source)[:limit]:
                 try:
                     await self._send_image(evt, img)
                 except Exception as e:

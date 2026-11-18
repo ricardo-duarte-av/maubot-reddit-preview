@@ -1,6 +1,6 @@
 # maubot-reddit-preview
 
-A [maubot](https://github.com/maubot/maubot) plugin that watches every room the bot has joined. When someone posts a Reddit link, the bot replies with a preview of that post: title, subreddit, author, score, comment count, body text and the top comments. It can also upload the post's image to the room.
+A [maubot](https://github.com/maubot/maubot) plugin that watches every room the bot has joined. When someone posts a Reddit link, the bot replies with a preview of that post: title, subreddit, author, score, comment count, body text and the top comments. It can also upload the post's images (including gallery and inline images) to the room.
 
 It uses only libraries that come with maubot (`aiohttp`, `yarl`, `mautrix`, `commonmark`), so there is nothing to `pip install`.
 
